@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Feb 10 09:36:52 2019
-
-@author: Di
+@author: Di Fu
 """
 
 import csv

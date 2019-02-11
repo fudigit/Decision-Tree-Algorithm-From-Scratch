@@ -262,4 +262,4 @@ def NaiveBayesWhole(filename,split_ratio):
     return score, score_chain, score_chain_whole
 
 filename= 'diabetes.csv'
-print(NaiveBayesWhole(filename, 0.6)
+print(NaiveBayesWhole(filename, 0.6))

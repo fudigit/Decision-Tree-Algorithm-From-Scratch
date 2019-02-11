@@ -178,6 +178,7 @@ def predict_all(summaries_class,testSet):
 
 #print(predict_all(summarizeByClass(trainSet),testSet))
 
+#####################################################
 # 4.v2 make prediction for all testSet, based on prior*conditional probablity by class
 # 4.v2.1
 # calculate class probability
@@ -261,4 +262,4 @@ def NaiveBayesWhole(filename,split_ratio):
     return score, score_chain, score_chain_whole
 
 filename= 'diabetes.csv'
-print(NaiveBayesWhole(filename, 0.6))
+print(NaiveBayesWhole(filename, 0.6)

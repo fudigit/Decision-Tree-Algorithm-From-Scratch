@@ -125,9 +125,6 @@ print('Scores: %s' % scores)
 print('Mean Accuracy: %.3f%%' % (sum(scores)/float(len(scores))))
 
 
-
-
-
 import csv
 
 '''Handle data'''
@@ -137,11 +134,14 @@ def load_csv(filename):
   
   for i in range(1, len(dataset)):
     dataset[i] = [float(x) for x in dataset[i]]
+  
+  header = list(dataset)[0]
+  dataset = list(dataset)[1:]
 
-  return dataset
+  return dataset, header
 
 filename= 'pima-indians-diabetes.csv'
-dataset= load_csv('diabetes.csv')
+dataset, header= load_csv('diabetes.csv')
 print('loaded {} with {} rows'.format(filename,len(dataset)))
 
 '''split data'''
@@ -161,20 +161,22 @@ print('split {} rows into train with {} and test with {}'.format
 (len(dataset),len(trainSet),len(testSet)))
 
 
-
-
-
-
 import math
 
 def predict(row, coefficients):
+  #print('row=',row,'coefficient=',coefficients)
   yhat = coefficients[0]
   for i in range(len(row)-1):
     yhat += coefficients[i+1]*row[i]
-  return 1/(1+math.exp(-yhat))
+  # the if statement is to avoid overflow
+  if yhat >= 0:
+    prob = 1/(1 + math.exp(-yhat))
+  elif yhat < 0:
+    prob = 1 - 1/(math.exp(yhat)+ 1)
+  #print('yhat', yhat, 'prob', prob)
+  return prob
 
-
-dataset = [[2.7810836,2.550537003,0],
+data_test = [[2.7810836,2.550537003,0],
 	[1.465489372,2.362125076,0],
 	[3.396561688,4.400293529,0],
 	[1.38807019,1.850220317,0],
@@ -188,6 +190,116 @@ dataset = [[2.7810836,2.550537003,0],
 coef = [-0.406605464, 0.852573316, -1.104746259]
 
 
-for row in dataset:
-  yhat = predict(row, coef)
-  print("Expected=%.3f, Predicted=%.3f [%d]" % (row[-1], yhat, round(yhat)))
+#for row in data_test:
+#  yhat = predict(row, coef)
+#  print("Expected=%.3f, Predicted=%.3f [%d]" % (row[-1], yhat, round(yhat)))
+
+'''stochastic gradient discent'''
+# 1. loop each epoch
+# 2. loop each row in trainSet for each epoch
+# 3. loop each coef for each row of trainset for each epoch
+# also record error for each epoch
+def coef_update_sgd(trainSet, l_rate, n_epoch):
+  coef_len = len(trainSet[0]) # constant coef + 1, label - 1
+  coef = [0 for _ in range(coef_len)]
+  for epoch in range(n_epoch):
+    #print(coef)
+    error_sum = 0
+    for row in trainSet:
+      prob_hat = predict(row, coef)
+      error = row[-1] - prob_hat
+      error_sum += error**2
+      #print('prob_hat', prob_hat, 'error', error)
+      coef[0] = coef[0] + l_rate*error*prob_hat*(1-prob_hat)
+      for i in range(1, coef_len):
+        coef[i] = coef[i] + l_rate*error*prob_hat*(1-prob_hat)*row[i-1]
+        
+    print('epoch=%f, l_rate=%f, error_sum=%f.3' % (epoch, l_rate, error_sum))
+
+  return coef
+
+#print(coef_update_sgd(data_test, 0.5, 100))
+
+
+
+''' apply logistic regression on the PIMA Diabete Dataset'''
+
+'''rescale data'''
+# if data is not rescaled, the yhat = b0 + b1*X becomes a big integer, causings the logit function gives 0 or 1 probablity 
+# get all the minimum and maximum of each col of the dataset
+def dataset_minmax(dataset):
+  n_col = len(dataset[0])
+  minmax = []
+  for i in range(n_col):
+    col_value = [row[i] for row in dataset]
+    min_col = min(col_value)
+    max_col = max(col_value)
+    minmax.append([min_col, max_col])
+  return minmax
+  
+print(dataset_minmax(dataset),'minmax')
+minmax = dataset_minmax(dataset)
+
+#scaling
+def scale_dataset(dataset, minmax):
+  scaled_set = list(dataset[:])
+  n_col = len(scaled_set[0]) - 1 
+  n_row = len(scaled_set)
+  for j in range(n_col):
+    for i in range(n_row):
+      scaled_set[i][j] = (scaled_set[i][j] - minmax[j][0])/(minmax[j][1] - minmax[j][0])
+      print(dataset[0], "---dataset---")
+  return scaled_set
+
+print(scale_dataset(dataset[0:3], minmax))
+
+
+''' train logistic regression model using stochastic gradient discent
+# use k-fold cross validation to estimate the performance of unseen data'''
+# 1. split data set
+# 2. for each fold, train (stochastic gd) model on the k-1 folds, and test on the k fold. Get the average accuracy of all k rounds of training. Goal is to pick the coefficent that minize result of CV 
+
+
+# split a dataset into k folds
+from random import randrange
+def cross_validation_split(dataset,n_folds):
+  dataset_split = list()
+  dataset_copy = list(dataset)
+  fold_size = int(len(dataset)/n_folds)
+  
+  for i in range(n_folds):
+    fold = list()
+    while len(fold) < fold_size:
+      index = randrange(len(dataset_copy))
+      fold.append(dataset_copy.pop(index))
+    dataset_split.append(fold)
+  print ('record used',len(fold)*n_folds)
+  return dataset_split
+
+#print(cross_validation_split(data_test,3))
+
+
+# calc accuracy score
+def accuracy_metric(y_true, y_pred):
+  count = 0
+  for i in range(len(y_true)):
+    if y_true[i] == y_pred[i]:
+      count += 1
+  score = count/len(y_true)
+  return score
+
+#t = scale_dataset(trainSet, minmax)
+  
+#coef = coef_update_sgd(t,0.5,500)
+#y_pred = []
+#for row in testSet:
+#  y_pred.append(round(predict(row, coef)))
+
+#y_true = [row[-1] for row in testSet]
+
+#print(accuracy_metric(y_true, y_pred))
+
+
+
+
+

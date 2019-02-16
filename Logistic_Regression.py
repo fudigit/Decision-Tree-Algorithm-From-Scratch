@@ -227,7 +227,7 @@ def coef_update_sgd(trainSet, l_rate, n_epoch):
 '''rescale data'''
 # if data is not rescaled, the yhat = b0 + b1*X becomes a big integer, causings the logit function gives 0 or 1 probablity 
 # get all the minimum and maximum of each col of the dataset
-def dataset_minmax(dataset):
+def get_minmax(dataset):
   n_col = len(dataset[0])
   minmax = []
   for i in range(n_col):
@@ -237,21 +237,23 @@ def dataset_minmax(dataset):
     minmax.append([min_col, max_col])
   return minmax
   
-print(dataset_minmax(dataset),'minmax')
-minmax = dataset_minmax(dataset)
+print(get_minmax(dataset),'minmax')
+minmax = get_minmax(dataset)
 
+
+import copy
 #scaling
 def scale_dataset(dataset, minmax):
-  scaled_set = list(dataset[:])
+  # deep copy works for 2D data
+  scaled_set = copy.deepcopy(list(dataset[:]))
   n_col = len(scaled_set[0]) - 1 
   n_row = len(scaled_set)
   for j in range(n_col):
     for i in range(n_row):
       scaled_set[i][j] = (scaled_set[i][j] - minmax[j][0])/(minmax[j][1] - minmax[j][0])
-      print(dataset[0], "---dataset---")
   return scaled_set
 
-print(scale_dataset(dataset[0:3], minmax))
+data_scaled = scale_dataset(dataset, minmax)
 
 
 ''' train logistic regression model using stochastic gradient discent
@@ -288,18 +290,53 @@ def accuracy_metric(y_true, y_pred):
   score = count/len(y_true)
   return score
 
-#t = scale_dataset(trainSet, minmax)
+# evaluate algorithm using cross validation
+
+def evaluate_algorithm(trainSet, n_folds):
+
+# split data into k folds
+  folds = cross_validation_split(trainSet, n_folds)
+  scores = []
+  for fold in folds:
+    trainSet_cv = list(folds)
+    trainSet_cv.remove(fold)
+    testSet_cv = copy.deepcopy(fold)
+    coef = logistic_train(trainSet_cv, 0.1, 100)
+    y_pred = predict_all(testSet_cv,coef)
+    y_true = [row[-1] for row in testSet_cv]
+    accuracy = accuracy_metric(y_true, y_pred)
+    scores.append(accuracy)
+  return scores
+
+# fit model using logistic regression on the kth fold, and predict on the kth fold
   
-#coef = coef_update_sgd(t,0.5,500)
-#y_pred = []
-#for row in testSet:
-#  y_pred.append(round(predict(row, coef)))
 
-#y_true = [row[-1] for row in testSet]
+#print(evaluate_algorithm(trainSet, logistic_train, 5))
 
+
+def logistic_train(trainSet, l_rate, n_epoch):
+  minmax = get_minmax(trainSet)
+  trainScaled = scale_dataset(trainSet, minmax)
+  coef = coef_update_sgd(trainScaled, l_rate, n_epoch)
+  return coef
+
+coef = logistic_train(trainSet, 0.1, 100)
+
+def predict_all(testSet, coef):
+  minmax = get_minmax(testSet)
+  testScaled = scale_dataset(testSet,minmax)
+  y_pred = []
+  for row in testScaled:
+    pred = round(predict(row, coef))
+    y_pred.append(pred)
+  return y_pred
+
+#y_pred = [round(row) for row in predict_all(testSet, coef)]
+
+y_true = [row[-1] for row in testSet]
 #print(accuracy_metric(y_true, y_pred))
 
 
 
-
+scores = evaluate_algorithm(trainSet, 5)
 

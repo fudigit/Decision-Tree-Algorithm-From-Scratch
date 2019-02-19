@@ -67,7 +67,12 @@ coef = [-0.406605464, 0.852573316, -1.104746259]
 #  yhat = predict(row, coef)
 #  print("Expected=%.3f, Predicted=%.3f [%d]" % (row[-1], yhat, round(yhat)))
 
-'''stochastic gradient discent'''
+'''stochastic gradient descent'''
+# http://www.cs.cmu.edu/~ninamf/courses/601sp15/slides/06_GenDiscr_LR_2-2-2015-ann.pdf
+
+# Maximizing Conditional Log Likelihood: l(W) = sum(P(Y`l|X`l,W) for all <X`l, Y`l> in train set L
+# After drivation, partial derivative of l(W) with respective of wi can be used for gradient ascent 
+
 # 1. loop each epoch
 # 2. loop each row in trainSet for each epoch
 # 3. loop each coef for each row of trainset for each epoch
@@ -78,22 +83,54 @@ def coef_update_sgd(trainSet, l_rate, n_epoch):
   for epoch in range(n_epoch):
     #print(coef)
     error_sum = 0
+    prob_sum = 0
     for row in trainSet:
       prob_hat = predict(row, coef)
       error = row[-1] - prob_hat
       error_sum += error**2
+      if row[-1] == 1:
+        prob_sum += math.log(prob_hat)
+      else:
+        prob_sum += math.log(1-prob_hat)
       #print('prob_hat', prob_hat, 'error', error)
-      coef[0] = coef[0] + l_rate*error*prob_hat*(1-prob_hat)
+      coef[0] = coef[0] + l_rate*error
       for i in range(1, coef_len):
-        coef[i] = coef[i] + l_rate*error*prob_hat*(1-prob_hat)*row[i-1]
+        coef[i] = coef[i] + l_rate*error*row[i-1]
         
-    print('epoch=%f, l_rate=%f, error_sum=%f.3' % (epoch, l_rate, error_sum))
-
+    print('epoch=%s, l_rate=%.2f, error_sum=%.3f, logMCLE=%.1f' % (epoch, l_rate, error_sum, prob_sum))
   return coef
 
 #print(coef_update_sgd(data_test, 0.5, 100))
-
-
+def coef_update_gABatch(trainSet, l_rate, n_epoch):
+  coef_len = len(trainSet[0]) # constant coef + 1, label - 1
+  coef = [0 for _ in range(coef_len)]
+  for epoch in range(n_epoch):
+    #print(coef)
+    error_sum = 0
+    prob_sum = 0
+    # place hold to get batch gradient
+    gradient = [0 for _ in range(coef_len)]
+    for row in trainSet:
+      prob_hat = predict(row, coef)
+      error = row[-1] - prob_hat
+      error_sum += error**2
+      if row[-1] == 1:
+        prob_sum += math.log(prob_hat)
+      else:
+        prob_sum += math.log(1-prob_hat)
+      '''gradient for each w_i for all rows'''
+      # assume x0 = 1 for all records
+      gradient[0] += 1*error
+      # calculating batch gradient at each w_i
+      for i in range(1, coef_len):
+        gradient[i] += row[i-1]*error
+      #print('prob_hat', prob_hat, 'error', error)
+    
+    # update each w_i using l_rate*gradient at each w_i
+    for i in range(coef_len):
+      coef[i] = coef[i] + l_rate*gradient[i]
+    print('epoch=%s, l_rate=%.2f, error_sum=%.3f, logMCLE=%.1f' % (epoch, l_rate, error_sum, prob_sum))
+  return coef
 
 ''' apply logistic regression on the PIMA Diabete Dataset'''
 
@@ -166,7 +203,7 @@ def accuracy_metric(y_true, y_pred):
 
 # evaluate algorithm using cross validation
 
-def evaluate_algorithm(trainSet, n_folds):
+def evaluate_algorithm(trainSet, n_folds, algorithm, *args):
 
 # split data into k folds
   folds = cross_validation_split(trainSet, n_folds)
@@ -176,7 +213,7 @@ def evaluate_algorithm(trainSet, n_folds):
     trainSet_cv.remove(fold)
     trainSet_cv = sum(trainSet_cv, [])
     testSet_cv = copy.deepcopy(fold)
-    coef = logistic_train(trainSet_cv, 0.1, 100)
+    coef = algorithm(trainSet_cv, *args)
     y_pred = predict_all(testSet_cv,coef)
     y_true = [row[-1] for row in testSet_cv]
     accuracy = accuracy_metric(y_true, y_pred)
@@ -189,28 +226,21 @@ def evaluate_algorithm(trainSet, n_folds):
 #print(evaluate_algorithm(trainSet, logistic_train, 5))
 
 
-def logistic_train(trainSet, l_rate, n_epoch):
-  minmax = get_minmax(trainSet)
-  trainScaled = scale_dataset(trainSet, minmax)
-  coef = coef_update_sgd(trainScaled, l_rate, n_epoch)
-  return coef
-
-#coef = logistic_train(trainSet, 0.1, 100)
-
 def predict_all(testSet, coef):
-  minmax = get_minmax(testSet)
-  testScaled = scale_dataset(testSet,minmax)
   y_pred = []
-  for row in testScaled:
+  for row in testSet:
     pred = round(predict(row, coef))
     y_pred.append(pred)
   return y_pred
 
 #y_pred = [round(row) for row in predict_all(testSet, coef)]
 
-y_true = [row[-1] for row in testSet]
+#y_true = [row[-1] for row in testSet]
 #print(accuracy_metric(y_true, y_pred))
 
-
-
-scores = evaluate_algorithm(trainSet, 5)
+minmax = get_minmax(trainSet)
+trainScaled = scale_dataset(trainSet, minmax)
+minmax_whole = get_minmax(trainSet)
+dataScaled = scale_dataset(dataset, minmax_whole)
+scores = evaluate_algorithm(dataScaled, 5, coef_update_sgd, 0.1, 100)
+print(sum(scores)/5)

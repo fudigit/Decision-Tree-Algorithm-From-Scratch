@@ -13,9 +13,168 @@ except ImportError:
     print('INFO: Plotly is not installed, plots will not be generated.')
 
 
+'''# pure python inplementation of K-means clustering'''
 
-import math
+'''
+repeat 2 steps until convergence
+step 1: Assignment: for each point, get the distance to each controid, assign point to closest centroid's cluster
+step 2: Update: recalculate the centroid of the cluster, it will be the centroid of the new cluster
+
+'''
+
+
+'''Classes'''
+'''define point class'''
+# require coords and length
+
+class Point(object):
+    '''a point in n dementional space'''
+    
+    # __init__ special method to take initial value
+    def __init__(self, coords):
+        self.coords = coords
+        self.n = len(coords)
+    # __repr__
+    def __repr__(self):
+        return str(self.coords)
+    
+a = Point([1])
+
+class Cluster(object):
+    '''a set of points and their contriod'''
+    def __init__(self, points):
+        '''Points - A list of point objects'''
+        
+        # store the points
+        self.points = points
+        
+        # the dimension of the points in this cluster
+        self.n = points[0].n
+        
+        # assert that all points are for the same dimensionality
+        for p in points:
+            if p.n != self.n:
+                raise Exception(p, 'Error, inconsistent dimensionality')
+                
+        #initial centroid is based of 1 point, later it would be based on multiple points
+        self.centroid = self.calculate_centroid()
+    
+    def __repr__(self):
+        '''string repr of cluster object'''
+        return str(self.points)
+    
+    def update(self, points):
+        '''
+        1. store the old centroid, replace the cluster
+        2. calc new centroid
+        2. returns the distance between the old centroid and the new after recalc
+        Note:
+        '''
+        # store the old centroid
+        old_centroid = self.centroid
+        # replace the old cluster with the new cluster
+        self.points = points
+        # calc the new centroid, this is step is neccesary, otherwise the old centriod remains
+        self.centroid = self.calculate_centroid()
+        # calc the distance
+        shift = get_distance(old_centroid, self.centroid)
+        return shift
+    
+
+    def calculate_centroid(self):
+        '''find the geometric center for a cluster of n dimention points'''
+        centriod_coord = []
+        num_points = len(self.points)
+        # list of all coords in cluster
+        coords = [p.coords for p in self.points]
+        # calculate mean for each dimension
+        for col in range(self.n):
+            col_sum = sum([row[col] for row in coords])
+            col_mean = col_sum/num_points
+            centriod_coord.append(col_mean)
+        return Point(centriod_coord)
+                
+    def get_total_distance(self):
+        '''return the sum of all Euclidean distance between each point in cluster and their centroid'''
+        dis_total = 0
+        for p in self.points:
+            dis_total += get_distance(p, self.centroid)
+        return dis_total
+            
+
+# test update(self, points)   
+#a = Cluster(Points1)
+#print(a)
+#print(a.update(Points2))
+#print(a)
+        
+
+'''Helper Method'''
+
 import random
+
+#sample each coordinate from the uniform or gaussian distribution
+random.gauss(0,1)
+random.uniform(0, 10)
+
+def make_random_point(n_dims, lower, upper):
+    '''Return a Point object with specified dimensions and bounded value'''
+    p = Point([random.uniform(lower, upper) for _ in range(n_dims)])
+    return p
+
+# test
+make_random_point(2, 0, 10)
+#Generate somes points
+Points1 = [
+        make_random_point(2, 0, 10) for _ in range(30)
+        ]
+
+
+Points2 =  [
+        make_random_point(2, 10, 20) for _ in range(30)
+        ]
+
+
+def get_distance(a,b):
+    """
+    Suared Euclidean distance between 2 n-dimentional point objects
+    """
+    sum_square = 0
+    p_len = len(a.coords)
+    for i in range(p_len):
+        sum_square += (a.coords[i] - b.coords[i])**2
+    e_dis = sum_square**(1/2)
+    return e_dis
+# test
+a, b = Point([1,1,1]), Point([2,2,2])
+get_distance(a, b)
+
+
+
+
+
+'''define kMeans method'''
+def kmeans(points, k, cuff):
+    # pick out k random points to use as initial centriods
+    initial_centroids = random.sample(points, k)
+    
+    # create k clusters using the centriods
+    # Note: Cluster take list!
+    # How to create and store multiple clusters?
+    Clusters = [Cluster([init_c]) for init_c in initial_centroids]
+    
+    # assignment step
+    
+    
+    # update step
+    
+
+
+
+
+
+
+
 
 num_points = 20
 
@@ -28,7 +187,8 @@ num_clusters = 3
 
 cutoff = 0.2
 
-'''define class'''
+
+
 class Point(object):
   def __init__(self,coords):
     self.coords = coords
@@ -37,7 +197,7 @@ class Point(object):
   def __repr__(self):
     return str(self.coords)
 
-
+'''define cluster class'''
 class Cluster(object):
     def __init__(self, points):
         
@@ -159,5 +319,3 @@ while True:
     
     
 print (clusters)
-
-
